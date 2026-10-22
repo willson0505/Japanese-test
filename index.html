@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>日本語每日修練 N3–N2</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--ink:#1f2937;--muted:#667085;--accent:#3156a6;--line:#dce2ed;--good:#087443;--bad:#b42318}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans TC","Yu Gothic",sans-serif;line-height:1.65}
+header{background:#172b4d;color:#fff;padding:24px 16px}header .wrap,main{max-width:980px;margin:auto}h1{font-size:clamp(1.4rem,4vw,2rem);margin:0 0 4px}header p{margin:0;color:#d7e2fa}.date{font-weight:700;margin-top:10px}
+main{padding:18px 14px 48px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}.stat,.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}.stat strong{display:block;font-size:1.35rem}.stat span,.muted{color:var(--muted);font-size:.92rem}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}.tabs button{background:#e7ecf6;color:#22365b}.tabs button.active{background:var(--accent);color:#fff}
+button{border:0;border-radius:10px;padding:10px 14px;background:var(--accent);color:white;font:inherit;font-weight:650;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.secondary{background:#e7ecf6;color:#22365b}.danger{background:#a52828}.tag{display:inline-block;border-radius:99px;background:#edf1fa;padding:2px 9px;font-size:.82rem;margin-right:5px}
+.question{margin-top:12px}.question h2{font-size:1.1rem;margin:6px 0 12px}.choices{display:grid;gap:9px}.choice{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:11px;cursor:pointer;background:#fff}.choice input{margin-top:7px}.choice.selected{border-color:var(--accent);background:#f1f5ff}.choice.correct{border-color:#2d9b6f;background:#effbf5}.choice.incorrect{border-color:#d92d20;background:#fff4f2}
+.feedback{margin-top:14px;border-radius:12px;background:#f1f5fb;padding:14px}.feedback.good{background:#effbf5}.feedback.bad{background:#fff4f2}.vocab{border-top:1px solid var(--line);padding:10px 0}.vocab:first-child{border-top:0}.vocab strong{font-size:1.05rem}.pitch{font-size:.9rem;color:#6b4e16}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.hidden{display:none!important}.item{border-bottom:1px solid var(--line);padding:12px 0}.item:last-child{border-bottom:0}.small{font-size:.88rem}.pill{display:inline-block;border-radius:99px;padding:2px 8px;font-size:.8rem;background:#fff0c2;color:#785500}.empty{text-align:center;padding:28px;color:var(--muted)}footer{color:var(--muted);font-size:.85rem;text-align:center;padding:22px}
+@media(max-width:600px){.stats{grid-template-columns:1fr 1fr}.stat:last-child{grid-column:1/-1}.panel{padding:13px}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<h1>日本語每日修練 N3–N2</h1>
+<p>每天三題，慢慢累積真正會用的日文。</p>
+<div class="date" id="todayDate">正在載入日期…</div>
+</div></header>
+<main>
+<div class="stats">
+ <div class="stat"><strong id="streak">0 天</strong><span>連續簽到</span></div>
+ <div class="stat"><strong id="totalDone">0 題</strong><span>累積作答</span></div>
+ <div class="stat"><strong id="accuracy">—</strong><span>整體正確率</span></div>
+</div>
+<div class="panel" id="checkinPanel">
+ <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+  <div><strong id="checkinTitle">每日簽到</strong><div class="muted" id="checkinHint">完成今日簽到，建立學習習慣。</div></div>
+  <button id="checkinBtn">✓ 每日簽到</button>
+ </div>
+</div>
+<nav class="tabs" aria-label="主要功能">
+ <button class="active" data-tab="quiz">今日測驗</button>
+ <button data-tab="wrong">歷史錯題本</button>
+ <button data-tab="statsTab">學習統計</button>
+</nav>
+<section id="quizTab">
+ <div class="panel">
+  <div id="quizMeta" class="muted">今日題目載入中…</div>
+  <div id="quizArea"></div>
+  <div class="actions" id="quizActions"></div>
+ </div>
+</section>
+<section id="wrongTab" class="hidden">
+ <div class="panel">
+  <h2>歷史錯題本</h2>
+  <p class="muted">錯題與學習統計只保存在目前瀏覽器。可匯出 JSON 備份；此版本不需要 API，也不會自動同步到其他裝置。</p>
+  <div class="actions"><button id="exportProfile">匯出學習檔 JSON</button><button class="secondary" id="exportWrong">匯出錯題 JSON</button><button class="secondary" id="clearWrong">清除錯題紀錄</button></div>
+  <div id="wrongList"></div>
+ </div>
+</section>
+<section id="statsTab" class="hidden">
+ <div class="panel"><h2>學習統計</h2><div id="topicStats"></div></div>
+</section>
+<footer>學習紀錄保存在這個瀏覽器，不會自動跨裝置同步。單字音調資訊尚未逐筆由權威詞典核對，均標示「待核對」，請勿視為已驗證資料。</footer>
+</main>
+<script>
+const BANK_URL = "./data/questions.json";
+const LS = {checkins:"jpN3N2_checkins_v1", answers:"jpN3N2_answers_v1", wrong:"jpN3N2_wrong_v1", topic:"jpN3N2_topicStats_v1", sessions:"jpN3N2_sessions_v1"};
+let bank=[], todayQuestions=[], currentIndex=0, selections={}, submitted=false;
+const $ = id => document.getElementById(id);
+const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
+const write = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+function taipeiDate(d=new Date()){ return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit"}).format(d); }
+function prettyDate(iso){ const [y,m,d]=iso.split("-"); return `${y} 年 ${m} 月 ${d} 日（台灣時間）`; }
+function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0;}
+function seededShuffle(items, seed){let a=[...items],x=seed>>>0;for(let i=a.length-1;i>0;i--){x=(1664525*x+1013904223)>>>0;const j=x%(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
+function chooseDailyQuestions(){
+ const date=taipeiDate(), all=bank.questions||[];
+ const recentWrong=read(LS.wrong,{}), topicStats=read(LS.topic,{});
+ // Local mistake-aware selection: prioritize weak topics, but diversify levels/types.
+ const scored=all.map(q=>{const w=recentWrong[q.id];const t=topicStats[q.topic]||{};return {...q,_score:(w?Math.min(8,(w.count||1)*2):0)+Math.min(5,t.wrong||0)};});
+ const ordered=seededShuffle(scored,hash(date));
+ ordered.sort((a,b)=>b._score-a._score);
+ const chosen=[];
+ for(const q of ordered){if(chosen.length>=3)break;
+   if(chosen.some(x=>x.id===q.id))continue;
+   // Prefer variety of type/level, but use available questions if bank is small.
+   const sameType=chosen.filter(x=>x.type===q.type).length;
+   if(chosen.length<2 && sameType>0 && ordered.length>4)continue;
+   chosen.push(q);
+ }
+ if(chosen.length<3)return chosen;
+ return chosen;
+}
+function renderStats(){
+ const checkins=read(LS.checkins,[]), today=taipeiDate();
+ $("streak").textContent=calcStreak(checkins)+" 天";
+ const answers=read(LS.answers,[]);
+ $("totalDone").textContent=answers.length+" 題";
+ const correct=answers.filter(a=>a.correct).length;
+ $("accuracy").textContent=answers.length?Math.round(correct/answers.length*100)+"%":"—";
+ const checked=checkins.includes(today);
+ $("checkinTitle").textContent=checked?"今日已簽到 ✓":"每日簽到";
+ $("checkinHint").textContent=checked?"今天的學習紀錄已標記。":"完成今日簽到，建立學習習慣。";
+ $("checkinBtn").textContent=checked?"✓ 已簽到":"✓ 每日簽到";
+ $("checkinBtn").disabled=checked;
+}
+function calcStreak(checkins){
+ const set=new Set(checkins);let d=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Taipei"}));let count=0;
+ while(true){const iso=taipeiDate(d);if(!set.has(iso))break;count++;d.setDate(d.getDate()-1);}
+ return count;
+}
+function renderQuestion(){
+ const q=todayQuestions[currentIndex];
+ if(!q){$("quizArea").innerHTML='<div class="empty">題庫目前不足三題。請在 data/questions.json 加入更多題目。</div>';return;}
+ $("quizMeta").innerHTML=`<span class="tag">${escapeHtml(q.level)}</span><span class="tag">${escapeHtml(typeName(q.type))}</span><span class="tag">${escapeHtml(q.topic)}</span> 第 ${currentIndex+1} / ${todayQuestions.length} 題`;
+ const disabled=submitted?"disabled":"";
+ $("quizArea").innerHTML=`<div class="question"><h2>${escapeHtml(q.question)}</h2><p class="muted">讀音提示：${escapeHtml(q.questionKana||"未提供")}</p><div class="choices">${q.choices.map((c,i)=>`<label class="choice ${selections[q.id]===i?"selected":""} ${submitted&&i===q.answerIndex?"correct":""} ${submitted&&selections[q.id]===i&&i!==q.answerIndex?"incorrect":""}"><input type="radio" name="answer" value="${i}" ${selections[q.id]===i?"checked":""} ${disabled}><span>${"ABCD"[i]}. ${escapeHtml(c)}</span></label>`).join("")}</div>${submitted?renderFeedback(q):""}</div>`;
+ if(!submitted){$("quizArea").querySelectorAll('input[name="answer"]').forEach(el=>el.addEventListener("change",e=>{selections[q.id]=Number(e.target.value);renderQuestion();}));}
+ $("quizActions").innerHTML="";
+ if(!submitted){$("quizActions").innerHTML=`<button id="submitAnswer" ${selections[q.id]===undefined?"disabled":""}>確認答案</button>`;$("submitAnswer").onclick=submitAnswer;}
+ else {$("quizActions").innerHTML=`<button class="secondary" id="prevQ" ${currentIndex===0?"disabled":""}>上一題</button><button id="nextQ">${currentIndex===todayQuestions.length-1?"完成今日測驗":"下一題"}</button>`;$("prevQ").onclick=()=>{currentIndex--;submitted=false;renderQuestion()};$("nextQ").onclick=()=>{if(currentIndex<todayQuestions.length-1){currentIndex++;submitted=false;renderQuestion()}else finishQuiz()};}
+}
+function renderFeedback(q){
+ const right=selections[q.id]===q.answerIndex;
+ return `<div class="feedback ${right?"good":"bad"}"><strong>${right?"回答正確！":"再記一次：正解是 "+ "ABCD"[q.answerIndex]+"。"}</strong><p>${escapeHtml(q.explanation)}</p><p><strong>中文：</strong>${escapeHtml(q.translation)}</p><h3>選項解析</h3><ol>${q.choiceExplanations.map((x,i)=>`<li><strong>${"ABCD"[i]}：</strong>${escapeHtml(x)}</li>`).join("")}</ol><h3>讀音、單字與音調</h3>${q.vocabulary.map(v=>`<div class="vocab"><strong>${escapeHtml(v.word)}</strong>（${escapeHtml(v.kana)}／${escapeHtml(v.katakana)}）<div>${escapeHtml(v.meaning)} · ${escapeHtml(v.partOfSpeech)}</div><div class="pitch">音調候選：${escapeHtml(v.accent?.notation||"未提供")} · ${v.accent?.status==="verified"?"已核對":"待核對"}${v.accent?.status==="verified"&&v.accent?.source?" · 來源："+escapeHtml(v.accent.source):""}</div></div>`).join("")}</div>`;
+}
+function submitAnswer(){
+ const q=todayQuestions[currentIndex];if(selections[q.id]===undefined)return;
+ submitted=true;const right=selections[q.id]===q.answerIndex;
+ const answers=read(LS.answers,[]);
+ if(!answers.some(a=>a.date===taipeiDate()&&a.questionId===q.id)){answers.push({date:taipeiDate(),questionId:q.id,correct:right,topic:q.topic,level:q.level,type:q.type});write(LS.answers,answers);}
+ const topics=read(LS.topic,{});topics[q.topic]=topics[q.topic]||{correct:0,wrong:0};topics[q.topic][right?"correct":"wrong"]++;write(LS.topic,topics);
+ if(!right){const wrong=read(LS.wrong,{});wrong[q.id]=wrong[q.id]||{question:q,count:0,dates:[]};wrong[q.id].count++;wrong[q.id].lastWrong=taipeiDate();wrong[q.id].dates.push(taipeiDate());wrong[q.id].question=q;write(LS.wrong,wrong);}
+ renderQuestion();renderStats();
+}
+function finishQuiz(){
+ $("quizArea").innerHTML='<div class="empty"><h2>今日三題完成！</h2><p>記得把錯題再複習一次。明天會依日期重新抽題。</p></div>';
+ $("quizActions").innerHTML='<button id="retryWrong">前往錯題本</button><button class="secondary" id="backQuiz">回到測驗</button>';
+ $("retryWrong").onclick=()=>switchTab("wrong");$("backQuiz").onclick=()=>{currentIndex=0;submitted=false;renderQuestion()};
+}
+function typeName(t){return ({grammar:"文法",vocabulary:"語彙",kanji_reading:"漢字讀音",reading:"讀解",usage:"用法"})[t]||t;}
+function renderWrong(){
+ const wrong=read(LS.wrong,{});
+ const entries=Object.values(wrong).sort((a,b)=>(b.lastWrong||"").localeCompare(a.lastWrong||""));
+ if(!entries.length){$("wrongList").innerHTML='<div class="empty">目前沒有錯題，繼續保持！</div>';return;}
+ $("wrongList").innerHTML=entries.map(({question:q,count,lastWrong})=>`<div class="item"><div><span class="tag">${escapeHtml(q.level)}</span><span class="tag">${escapeHtml(typeName(q.type))}</span><span class="tag">${escapeHtml(q.topic)}</span></div><strong>${escapeHtml(q.question)}</strong><p class="muted">錯誤次數：${count} · 最近答錯：${escapeHtml(lastWrong||"")}</p><p><strong>正解：</strong>${escapeHtml(q.choices[q.answerIndex])}</p><p>${escapeHtml(q.explanation)}</p><details><summary>查看完整解析與詞彙</summary><ol>${q.choiceExplanations.map(x=>`<li>${escapeHtml(x)}</li>`).join("")}</ol>${q.vocabulary.map(v=>`<p>${escapeHtml(v.word)}（${escapeHtml(v.kana)}／${escapeHtml(v.katakana)}）：${escapeHtml(v.meaning)}；音調：${escapeHtml(v.accent?.notation||"未提供")}（${v.accent?.status==="verified"?"已核對":"待核對"}）</p>`).join("")}</details><div class="actions"><button class="secondary" data-practice="${escapeHtml(q.id)}">再練這題</button></div></div>`).join("");
+ document.querySelectorAll("[data-practice]").forEach(b=>b.onclick=()=>{const qid=b.dataset.practice;const found=bank.questions.find(q=>q.id===qid);if(found){todayQuestions=[found];currentIndex=0;submitted=false;selections={};switchTab("quiz");renderQuestion();}});
+}
+function renderTopicStats(){
+ const stats=read(LS.topic,{});
+ const entries=Object.entries(stats).sort((a,b)=>(b[1].wrong||0)-(a[1].wrong||0));
+ $("topicStats").innerHTML=entries.length?entries.map(([topic,s])=>`<div class="item"><strong>${escapeHtml(topic)}</strong><div>答對 ${s.correct||0} 次 · 答錯 ${s.wrong||0} 次</div></div>`).join(""):'<div class="empty">開始作答後，這裡會顯示各考點表現。</div>';
+}
+function switchTab(tab){
+ document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
+ ["quiz","wrong","statsTab"].forEach(t=>$(t+"Tab").classList.toggle("hidden",t!==tab));
+ if(tab==="wrong")renderWrong();if(tab==="statsTab")renderTopicStats();
+}
+function download(name,data){
+ const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+ const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();URL.revokeObjectURL(url);
+}
+$("checkinBtn").onclick=()=>{const list=read(LS.checkins,[]),d=taipeiDate();if(!list.includes(d))list.push(d);write(LS.checkins,list);renderStats();};
+$("exportProfile").onclick=()=>{const stats=read(LS.topic,{});const topics=Object.entries(stats).map(([topic,s])=>({topic,correct:s.correct||0,wrong:s.wrong||0,priority:(s.wrong||0)-(s.correct||0)})).sort((a,b)=>b.priority-a.priority);download("learning-profile.json",{version:1,exportedAt:taipeiDate(),topics,note:"此檔案用於備份本機學習弱點統計；本題庫版不會自動上傳或同步。"});};
+$("exportWrong").onclick=()=>download("wrong-questions.json",Object.values(read(LS.wrong,{})));
+$("clearWrong").onclick=()=>{if(confirm("確定清除本機歷史錯題？此動作無法復原。")){write(LS.wrong,{});renderWrong();}};
+document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+async function init(){
+ const today=taipeiDate();$("todayDate").textContent=prettyDate(today);
+ try{
+  const response=await fetch(BANK_URL+"?v="+encodeURIComponent(today),{cache:"no-store"});
+  if(!response.ok)throw new Error("HTTP "+response.status);
+  const data=await response.json();bank=data;
+ }catch(e){
+  $("quizMeta").textContent="題庫讀取失敗。請確認 data/questions.json 已上傳，且網站已部署。";
+  $("quizArea").innerHTML='<div class="empty">無法載入題庫。請確認 GitHub Pages 的部署路徑與 data/questions.json。</div>';return;
+ }
+ todayQuestions=chooseDailyQuestions();
+ $("checkinBtn").disabled=read(LS.checkins,[]).includes(today);
+ // Daily questions fixed by date; retain selection only during this page session.
+ renderStats();renderQuestion();
+}
+init();
+</script>
+</body>
+</html>
